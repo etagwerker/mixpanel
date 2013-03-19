@@ -3,10 +3,20 @@ require 'json'
 
 module Mixpanel
   class Middleware
+    class << self
+      attr_accessor :skip_request
+      def skip_this_request
+        @skip_request = true
+      end
+    end
+
+    @skip_request = false
+
     def initialize(app, mixpanel_token, options={})
       @app = app
       @token = mixpanel_token
       @options = {
+        :insert_mixpanel_scripts=> true,
         :insert_js_last => false,
         :persist => false,
         :config => {}
@@ -17,13 +27,15 @@ module Mixpanel
       @env = env
 
       @status, @headers, @response = @app.call(env)
-      
-      if is_trackable_response?
+
+      if is_trackable_response? && !Mixpanel::Middleware.skip_request
         merge_queue! if @options[:persist]
         update_response!
         update_content_length!
         delete_event_queue!
       end
+
+      Mixpanel::Middleware.skip_request = false
 
       [@status, @headers, @response]
     end
@@ -36,8 +48,12 @@ module Mixpanel
           insert_at = part.index(@options[:insert_js_last] ? '</body' : '</head')
           unless insert_at.nil?
             part.insert(insert_at, render_event_tracking_scripts) unless queue.empty?
-            part.insert(insert_at, render_mixpanel_scripts) #This will insert the mixpanel initialization code before the queue of tracking events.
+            if @options[:insert_mixpanel_scripts]
+              part.insert(insert_at, render_mixpanel_scripts) #This will insert the mixpanel initialization code before the queue of tracking events.
+            end
           end
+        elsif is_turbolink_request? && is_html_response?
+          part.insert(part.index('</body'), render_event_tracking_scripts) unless queue.empty?
         elsif is_ajax_request? && is_html_response?
           part.insert(0, render_event_tracking_scripts) unless queue.empty?
         elsif is_ajax_request? && is_javascript_response?
@@ -53,7 +69,11 @@ module Mixpanel
     end
 
     def is_regular_request?
-      !is_ajax_request?
+      !is_ajax_request? && !is_turbolink_request?
+    end
+
+    def is_turbolink_request?
+      @env.has_key?("HTTP_X_XHR_REFERER")
     end
 
     def is_ajax_request?
@@ -133,7 +153,7 @@ module Mixpanel
       return "" if queue.empty?
 
       output = queue.map {|type, arguments| %(mixpanel.#{type}(#{arguments.join(', ')});) }.join("\n")
-      output = "try {#{output}} catch(err) {}"
+      output = "try {#{output}} catch(err) {};"
 
       include_script_tag ? "<script type='text/javascript'>#{output}</script>" : output
     end

@@ -47,6 +47,18 @@ describe Mixpanel::Middleware do
       get "/"
       Nokogiri::HTML(last_response.body).search('script').size.should == 1
     end
+
+    context "when disabling with #skip_this_request" do
+      before{ Mixpanel::Middleware.skip_this_request }
+
+      it "should skip this request but not the next request" do
+        get "/"
+        Nokogiri::HTML(last_response.body).search('script').should be_empty
+        get "/"
+        Nokogiri::HTML(last_response.body).search('script').size.should == 1
+      end
+
+    end
   end
     
   describe "Appending async mixpanel scripts" do
@@ -192,6 +204,18 @@ describe Mixpanel::Middleware do
         it "should append mixpanel scripts to end of body element" do
           Nokogiri::HTML(last_response.body).search('head script').should be_empty
           Nokogiri::HTML(last_response.body).search('body script').should_not be_empty
+        end
+      end
+
+      describe "With no mixpanel scripts" do
+        before do
+          setup_rack_application(DummyApp, {:body => html_document, :headers => {"Content-Type" => "text/html"}}, {:insert_mixpanel_scripts => false})
+          get "/"
+        end
+
+        it "should not insert mixpanel scripts" do
+          Nokogiri::HTML(last_response.body).search('head script').should be_empty
+          Nokogiri::HTML(last_response.body).search('body script').should be_empty
         end
       end
     end

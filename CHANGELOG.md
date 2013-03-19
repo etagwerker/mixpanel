@@ -1,5 +1,31 @@
+Version Bump
+------------
+
+3.5.2 Feb 24, 2013
+
+Feb 2013
+--------
+
+* Ability to skip middleware js snippet injection. (adimichele)
+* Ability to unset a person property (Marko Vasiljevic)
+* Update DelayedJob documentation (Joel)
+
+Version Bump
+------------
+
+3.5.1 Jan 28, 2013
+
+Jan 2013
+--------
+
+* Add option to not render mixpanel scripts (Murilo Pereira)
+* Add support for Turbolinks (Jon Pospischil)
+* Add track_charge and reset_charges to Mixpanel::Person (Tom Brown)
+
 December 2012
 -------------
+
+* Fix: Github issue #59, When setting people properties, cannot set $ip for proper geolocation.
 * FOPS: Removing Active Support dependency.
 
 November 2012
